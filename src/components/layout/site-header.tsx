@@ -18,7 +18,7 @@ import { cn } from "cn";
 
 const navLinks = [
   { label: "Home", href: "/" },
-  { label: "Find Opportunities", href: "/opportunities" },
+  { label: "Explore Opportunities", href: "/opportunities" },
 ];
 
 /** Exact match for the home route, prefix match for section routes. */

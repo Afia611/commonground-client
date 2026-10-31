@@ -7,7 +7,7 @@ const footerNav = [
     heading: "Platform",
     links: [
       { label: "Home", href: "/" },
-      { label: "Find Opportunities", href: "/opportunities" },
+      { label: "Explore Opportunities", href: "/opportunities" },
     ],
   },
   {
