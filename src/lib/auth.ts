@@ -105,9 +105,10 @@ export const auth = betterAuth({
 
   // Allow requests from local development and the deployed frontend.
   trustedOrigins: [
-    "http://localhost:3000",
-    PRODUCTION_URL,
-  ],
+  "http://localhost:3000",
+  "https://commonground-client-tau.vercel.app",
+  "https://commonground-client-hrryk8ok7-programming-hero15.vercel.app",
+],
 
   secret: process.env.BETTER_AUTH_SECRET,
 
