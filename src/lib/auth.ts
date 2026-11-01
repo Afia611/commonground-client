@@ -23,6 +23,10 @@ import {
   PASSWORD_MIN_LENGTH,
   validatePasswordPolicy,
 } from "@/lib/password-policy";
+import { patchMongoSrvDns } from "@/lib/mongo-dns-fallback";
+
+// Atlas SRV lookups fail on some networks — let the driver retry via public DNS.
+patchMongoSrvDns();
 
 const BASE_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
