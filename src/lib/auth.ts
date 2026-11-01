@@ -19,6 +19,10 @@ import { nextCookies } from "better-auth/next-js";
 import { createAuthMiddleware } from "better-auth/api";
 import { jwt } from "better-auth/plugins";
 import { MongoClient } from "mongodb";
+import {
+  PASSWORD_MIN_LENGTH,
+  validatePasswordPolicy,
+} from "@/lib/password-policy";
 
 const BASE_URL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
@@ -51,20 +55,8 @@ function withMongoDb<T>(fn: (mongo: { client: MongoClient; db: ReturnType<MongoC
   return fn({ client, db: client.db(process.env.DB_NAME ?? "commonground") });
 }
 
-/** CommonGround password policy used on top of the built-in minimum length. */
-export const PASSWORD_MIN_LENGTH = 6;
-export function validatePasswordPolicy(password: string): string | null {
-  if (password.length < PASSWORD_MIN_LENGTH) {
-    return `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`;
-  }
-  if (!/[A-Z]/.test(password)) {
-    return "Password needs at least one uppercase letter.";
-  }
-  if (!/[a-z]/.test(password)) {
-    return "Password needs at least one lowercase letter.";
-  }
-  return null;
-}
+/** CommonGround password policy lives in src/lib/password-policy.ts and is
+ * enforced here server-side on every sign-up (and mirrored in the client). */
 
 /** Only include Google when both credentials are configured. */
 const socialProviders = {} as Record<string, unknown>;
