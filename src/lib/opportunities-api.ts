@@ -163,3 +163,57 @@ export function selectRelatedOpportunities(
 
   return [...sameCategory, ...otherCategories].slice(0, limit);
 }
+
+/**
+ * Create a new event via POST /api/opportunities with a BetterAuth-issued
+ * Bearer JWT. The backend binds the creator to the *verified* JWT identity,
+ * so no creator field can be sent or trusted from the browser.
+ * Returns the created opportunity (201) or throws ApiError.
+ */
+export async function createOpportunity(
+  payload: Record<string, unknown>,
+  authToken: string,
+): Promise<Opportunity> {
+  if (authToken.trim() === "") {
+    throw new ApiError(0, "You need to be logged in to create an event.");
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/opportunities`, {
+      method: "POST",
+      cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new ApiError(0, "Cannot reach the CommonGround backend right now.");
+  }
+
+  if (!response.ok) {
+    let message: string;
+    try {
+      const body = (await response.json()) as { message?: unknown; details?: { issues?: Array<{ message?: unknown }> } };
+      const issue =
+        (Array.isArray(body?.details?.issues) ? body.details.issues.map((i) => String(i.message))[0] : undefined) ||
+        (typeof body?.message === "string" ? body.message : undefined);
+      message = issue ||
+        `The backend responded with HTTP ${response.status} while creating the event.`;
+    } catch {
+      message = `The backend responded with HTTP ${response.status} while creating the event.`;
+    }
+    throw new ApiError(response.status, message);
+  }
+
+  const result: unknown = await response.json();
+  const data = (result as { data?: unknown })?.data;
+  if (!isOpportunityLike(data)) {
+    throw new ApiError(0, "The backend returned an unexpected response shape.");
+  }
+  return data;
+}
