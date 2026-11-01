@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Geist_Mono, Inter } from "next/font/google";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
 /* Inter: clean, highly readable body font for UI text */
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <SiteHeader />
         <main className="flex flex-1 flex-col">{children}</main>
         <SiteFooter />
+        <Toaster />
       </body>
     </html>
   );
