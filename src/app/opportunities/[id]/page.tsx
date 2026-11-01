@@ -24,32 +24,42 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  getOpportunityById,
-  getRelatedOpportunities,
-  opportunities,
-} from "@/data/opportunities";
+  fetchOpportunities,
+  fetchOpportunity,
+  MAX_PAGE_SIZE,
+  selectRelatedOpportunities,
+} from "@/lib/opportunities-api";
+import type { Opportunity } from "@/data/opportunities";
 
 type OpportunityPageProps = {
   params: Promise<{ id: string }>;
 };
 
-/** Pre-render the six sample opportunities at build time. */
-export function generateStaticParams() {
-  return opportunities.map((opportunity) => ({ id: opportunity.id }));
-}
+/**
+ * Opportunity details are served by the backend per request — no static
+ * prerender, because the database can change at any time. The backend
+ * accepts both MongoDB ObjectIds (used by API-backed cards) and legacy
+ * slugs here, so old `/opportunities/<slug>` routes and bookmarks
+ * keep working.
+ */
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
 }: OpportunityPageProps): Promise<Metadata> {
   const { id } = await params;
-  const opportunity = getOpportunityById(id);
-  if (!opportunity) {
-    return { title: "Opportunity not found | CommonGround" };
+  try {
+    const opportunity = await fetchOpportunity(id);
+    if (opportunity) {
+      return {
+        title: `${opportunity.title} | CommonGround`,
+        description: opportunity.description,
+      };
+    }
+  } catch {
+    // Metadata is best-effort; the page itself surfaces API errors.
   }
-  return {
-    title: `${opportunity.title} | CommonGround`,
-    description: opportunity.description,
-  };
+  return { title: "Opportunity not found | CommonGround" };
 }
 
 function DetailListItems({
@@ -81,16 +91,30 @@ function DetailListItems({
   );
 }
 
+/** Related opportunities from the API; degraded silently for this extra section. */
+async function loadRelated(opportunity: Opportunity): Promise<Opportunity[]> {
+  try {
+    const all = await fetchOpportunities({ page: 1, limit: MAX_PAGE_SIZE });
+    return selectRelatedOpportunities(all, opportunity, 2);
+  } catch {
+    return [];
+  }
+}
+
 export default async function OpportunityPage({ params }: OpportunityPageProps) {
   const { id } = await params;
-  const opportunity = getOpportunityById(id);
+
+  const opportunity = await fetchOpportunity(id);
+
   if (!opportunity) {
     notFound();
   }
 
-  const spotsFilled = opportunity.spotsTotal - opportunity.spotsLeft;
-  const percentFilled = Math.round((spotsFilled / opportunity.spotsTotal) * 100);
-  const related = getRelatedOpportunities(opportunity.id, 2);
+  const spotsTotal = opportunity.spotsTotal ?? 0;
+  const spotsLeft = opportunity.spotsLeft ?? 0;
+  const spotsFilled = Math.max(0, spotsTotal - spotsLeft);
+  const percentFilled = spotsTotal > 0 ? Math.round((spotsFilled / spotsTotal) * 100) : 0;
+  const related = await loadRelated(opportunity);
 
   return (
     <>
@@ -145,9 +169,9 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
                 <Users aria-hidden="true" className="size-4 shrink-0 text-primary" />
                 <span>
                   <span className="font-semibold text-coral">
-                    {opportunity.spotsLeft}
+                    {spotsLeft}
                   </span>{" "}
-                  of {opportunity.spotsTotal} places still open
+                  of {spotsTotal} places still open
                 </span>
               </li>
             </ul>
@@ -194,8 +218,7 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
                     highlight={true}
                   />
                 </CardContent>
-              </Card>
-            </div>
+              </Card>            </div>
 
             {/* Organizer */}
             <Card className="mt-10">
@@ -225,12 +248,12 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
                 <p className="flex items-baseline justify-between text-sm">
                   <span className="text-muted-foreground">Places still open</span>
                   <span className="font-semibold text-foreground">
-                    {opportunity.spotsLeft}/{opportunity.spotsTotal}
+                    {spotsLeft}/{spotsTotal}
                   </span>
                 </p>
                 <div
                   role="img"
-                  aria-label={`${percentFilled} percent of ${opportunity.spotsTotal} places are filled`}
+                  aria-label={`${percentFilled} percent of ${spotsTotal} places are filled`}
                   className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
                 >
                   <div
@@ -239,7 +262,7 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
                   />
                 </div>
                 <p className="mt-2 text-xs text-muted-foreground">
-                  {spotsFilled} of {opportunity.spotsTotal} places already taken
+                  {spotsFilled} of {spotsTotal} places already taken
                 </p>
               </div>
 
@@ -267,34 +290,36 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
       </section>
 
       {/* Related opportunities */}
-      <section aria-labelledby="related-heading" className="pb-16 sm:pb-20 lg:pb-24">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <h2
-              id="related-heading"
-              className="font-heading text-2xl font-semibold text-foreground sm:text-3xl"
-            >
-              More ways to help
-            </h2>
-            <Button
-              render={<Link href="/opportunities" />}
-              nativeButton={false}
-              variant="outline"
-              className="hidden sm:inline-flex"
-            >
-              View all opportunities
-            </Button>
+      {related.length > 0 && (
+        <section aria-labelledby="related-heading" className="pb-16 sm:pb-20 lg:pb-24">
+          <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <h2
+                id="related-heading"
+                className="font-heading text-2xl font-semibold text-foreground sm:text-3xl"
+              >
+                More ways to help
+              </h2>
+              <Button
+                render={<Link href="/opportunities" />}
+                nativeButton={false}
+                variant="outline"
+                className="hidden sm:inline-flex"
+              >
+                View all opportunities
+              </Button>
+            </div>
+            <div className="mt-6 grid gap-6 sm:grid-cols-2">
+              {related.map((relatedOpportunity) => (
+                <OpportunityCard
+                  key={relatedOpportunity.id}
+                  opportunity={relatedOpportunity}
+                />
+              ))}
+            </div>
           </div>
-          <div className="mt-6 grid gap-6 sm:grid-cols-2">
-            {related.map((relatedOpportunity) => (
-              <OpportunityCard
-                key={relatedOpportunity.id}
-                opportunity={relatedOpportunity}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
     </>
   );
 }

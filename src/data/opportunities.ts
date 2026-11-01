@@ -20,7 +20,17 @@ export type OpportunityOrganizer = {
 };
 
 export type Opportunity = {
+  /**
+   * Identifier used for detail-page URLs. API-backed records carry the
+   * MongoDB ObjectId here; the static demo data uses URL slugs. The backend
+   * accepts either format on GET /api/opportunities/:id.
+   */
   id: string;
+  /**
+   * Stable URL slug returned by the backend API (optional on static demo
+   * data). Reserved for future pretty URLs.
+   */
+  slug?: string;
   featured: boolean;
   title: string;
   organization: string;
