@@ -7,6 +7,7 @@ import {
   CalendarCheck,
   CalendarPlus,
   ClipboardList,
+  LayoutDashboard,
   LogOut,
   Menu,
 } from "lucide-react";
@@ -43,15 +44,40 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "cn";
 
+// Public navigation links
 const navLinks = [
   { label: "Home", href: "/" },
   { label: "Explore Opportunities", href: "/opportunities" },
 ];
 
+// Authenticated navigation links
+const eventMenuItems = [
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    label: "Create Event",
+    href: "/events/create",
+    icon: CalendarPlus,
+  },
+  {
+    label: "Manage Events",
+    href: "/events/manage",
+    icon: ClipboardList,
+  },
+  {
+    label: "Joined Events",
+    href: "/dashboard/joined",
+    icon: CalendarCheck,
+  },
+];
+
 function isActive(pathname: string, href: string) {
   return href === "/"
     ? pathname === "/"
-    : pathname.startsWith(href);
+    : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function navLinkClasses(active: boolean) {
@@ -73,24 +99,6 @@ function initials(name?: string) {
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 }
-
-const eventMenuItems = [
-  {
-    label: "Create Event",
-    href: "/events/create",
-    icon: CalendarPlus,
-  },
-  {
-    label: "Manage Events",
-    href: "/events/manage",
-    icon: ClipboardList,
-  },
-  {
-    label: "Joined Events",
-    href: "/events/joined",
-    icon: CalendarCheck,
-  },
-];
 
 export function SiteHeader() {
   const pathname = usePathname();
@@ -135,6 +143,7 @@ export function SiteHeader() {
     }
   }
 
+  // Account dropdown, shown on desktop
   const profileMenu = user ? (
     <DropdownMenu>
       <TooltipProvider>
@@ -168,7 +177,7 @@ export function SiteHeader() {
         </Tooltip>
       </TooltipProvider>
 
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="flex flex-col">
           <span className="truncate">
             {user.name ?? "CommonGround member"}
@@ -209,12 +218,12 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/75">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
         {/* Logo */}
         <Link
           href="/"
           aria-label="CommonGround — home"
-          className="rounded-md text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="shrink-0 rounded-md text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Logo />
         </Link>
@@ -222,16 +231,14 @@ export function SiteHeader() {
         {/* Desktop navigation */}
         <nav
           aria-label="Main navigation"
-          className="hidden items-center gap-1 md:flex"
+          className="hidden min-w-0 items-center gap-1 lg:flex"
         >
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               aria-current={
-                isActive(pathname, link.href)
-                  ? "page"
-                  : undefined
+                isActive(pathname, link.href) ? "page" : undefined
               }
               className={navLinkClasses(
                 isActive(pathname, link.href)
@@ -240,10 +247,29 @@ export function SiteHeader() {
               {link.label}
             </Link>
           ))}
+
+          {/* Private links: only visible when logged in */}
+          {user &&
+            eventMenuItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={
+                  isActive(pathname, item.href)
+                    ? "page"
+                    : undefined
+                }
+                className={navLinkClasses(
+                  isActive(pathname, item.href)
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
         </nav>
 
         {/* Desktop authentication */}
-        <div className="hidden items-center gap-2 md:flex">
+        <div className="hidden shrink-0 items-center gap-2 lg:flex">
           {user ? (
             profileMenu
           ) : sessionPending ? (
@@ -271,14 +297,14 @@ export function SiteHeader() {
           )}
         </div>
 
-        {/* Mobile navigation */}
+        {/* Mobile and tablet navigation */}
         <Sheet>
           <SheetTrigger
             render={
               <Button
                 variant="ghost"
                 aria-label="Open navigation menu"
-                className="size-10 md:hidden"
+                className="size-10 lg:hidden"
               />
             }
           >
@@ -287,7 +313,7 @@ export function SiteHeader() {
 
           <SheetContent
             side="left"
-            className="w-80 px-6 py-6"
+            className="w-80 max-w-[90vw] px-6 py-6"
           >
             <SheetHeader>
               <SheetTitle className="sr-only">
@@ -298,9 +324,10 @@ export function SiteHeader() {
             <Logo />
 
             <nav
-              aria-label="Main navigation"
+              aria-label="Mobile navigation"
               className="mt-2 flex flex-col items-start gap-1"
             >
+              {/* Public links */}
               {navLinks.map((link) => (
                 <SheetClose
                   key={link.href}
@@ -318,6 +345,7 @@ export function SiteHeader() {
                 </SheetClose>
               ))}
 
+              {/* Authenticated links */}
               {user
                 ? eventMenuItems.map((item) => (
                     <SheetClose
@@ -369,9 +397,12 @@ export function SiteHeader() {
                     Log out
                   </Button>
                 </div>
+              ) : sessionPending ? (
+                <span className="text-sm text-muted-foreground">
+                  Checking your session...
+                </span>
               ) : (
                 <>
-                  {/* Fixed: SheetClose renders a Link, not a button */}
                   <SheetClose
                     nativeButton={false}
                     render={
