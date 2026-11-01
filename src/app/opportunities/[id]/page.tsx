@@ -1,3 +1,4 @@
+
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
+import { JoinOpportunityPanel } from "@/components/opportunities/join-opportunity-panel";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -22,7 +24,12 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   fetchOpportunities,
   fetchOpportunity,
@@ -35,21 +42,16 @@ type OpportunityPageProps = {
   params: Promise<{ id: string }>;
 };
 
-/**
- * Opportunity details are served by the backend per request — no static
- * prerender, because the database can change at any time. The backend
- * accepts both MongoDB ObjectIds (used by API-backed cards) and legacy
- * slugs here, so old `/opportunities/<slug>` routes and bookmarks
- * keep working.
- */
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({
   params,
 }: OpportunityPageProps): Promise<Metadata> {
   const { id } = await params;
+
   try {
     const opportunity = await fetchOpportunity(id);
+
     if (opportunity) {
       return {
         title: `${opportunity.title} | CommonGround`,
@@ -57,9 +59,12 @@ export async function generateMetadata({
       };
     }
   } catch {
-    // Metadata is best-effort; the page itself surfaces API errors.
+    // Metadata is best-effort.
   }
-  return { title: "Opportunity not found | CommonGround" };
+
+  return {
+    title: "Opportunity not found | CommonGround",
+  };
 }
 
 function DetailListItems({
@@ -91,30 +96,38 @@ function DetailListItems({
   );
 }
 
-/** Related opportunities from the API; degraded silently for this extra section. */
-async function loadRelated(opportunity: Opportunity): Promise<Opportunity[]> {
+async function loadRelated(
+  opportunity: Opportunity,
+): Promise<Opportunity[]> {
   try {
-    const all = await fetchOpportunities({ page: 1, limit: MAX_PAGE_SIZE });
-    return selectRelatedOpportunities(all, opportunity, 2);
+    const all = await fetchOpportunities({
+      page: 1,
+      limit: MAX_PAGE_SIZE,
+    });
+
+    return selectRelatedOpportunities(
+      all,
+      opportunity,
+      2,
+    );
   } catch {
     return [];
   }
 }
 
-export default async function OpportunityPage({ params }: OpportunityPageProps) {
+export default async function OpportunityPage({
+  params,
+}: OpportunityPageProps) {
   const { id } = await params;
-
   const opportunity = await fetchOpportunity(id);
 
   if (!opportunity) {
     notFound();
   }
 
-  const spotsTotal = opportunity.spotsTotal ?? 0;
-  const spotsLeft = opportunity.spotsLeft ?? 0;
-  const spotsFilled = Math.max(0, spotsTotal - spotsLeft);
-  const percentFilled = spotsTotal > 0 ? Math.round((spotsFilled / spotsTotal) * 100) : 0;
   const related = await loadRelated(opportunity);
+  const spotsLeft = opportunity.spotsLeft ?? 0;
+  const spotsTotal = opportunity.spotsTotal ?? 0;
 
   return (
     <>
@@ -123,50 +136,63 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink render={<Link href="/" />}>Home</BreadcrumbLink>
+                <BreadcrumbLink render={<Link href="/" />}>
+                  Home
+                </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbLink render={<Link href="/opportunities" />}>
+                <BreadcrumbLink
+                  render={<Link href="/opportunities" />}
+                >
                   Opportunities
                 </BreadcrumbLink>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>{opportunity.title}</BreadcrumbPage>
+                <BreadcrumbPage>
+                  {opportunity.title}
+                </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
         </div>
       </section>
 
-      {/* Overview */}
       <section className="py-12 sm:py-16">
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_360px]">
           <div>
-            <Badge variant="secondary">{opportunity.category}</Badge>
+            <Badge variant="secondary">
+              {opportunity.category}
+            </Badge>
+
             <h1 className="mt-4 font-heading text-4xl font-semibold text-foreground sm:text-5xl">
               {opportunity.title}
             </h1>
+
             <p className="mt-3 text-lg text-muted-foreground">
-              Organized by {opportunity.organization} · {opportunity.duration}
+              Organized by {opportunity.organization} ·{" "}
+              {opportunity.duration}
             </p>
 
             <ul className="mt-8 grid gap-3 text-sm text-muted-foreground sm:grid-cols-2">
               <li className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5">
-                <MapPin aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                <MapPin className="size-4 shrink-0 text-primary" />
                 {opportunity.location}
               </li>
+
               <li className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5">
-                <CalendarDays aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                <CalendarDays className="size-4 shrink-0 text-primary" />
                 {opportunity.schedule}
               </li>
+
               <li className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5">
-                <Clock aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                <Clock className="size-4 shrink-0 text-primary" />
                 {opportunity.duration}
               </li>
+
               <li className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2.5">
-                <Users aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                <Users className="size-4 shrink-0 text-primary" />
                 <span>
                   <span className="font-semibold text-coral">
                     {spotsLeft}
@@ -177,7 +203,7 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
             </ul>
 
             <div className="mt-8">
-              <h2 className="font-heading text-2xl font-semibold text-foreground">
+              <h2 className="font-heading text-2xl font-semibold">
                 About this opportunity
               </h2>
               <p className="mt-3 leading-relaxed text-muted-foreground">
@@ -197,6 +223,7 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
                   />
                 </CardContent>
               </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>What you&rsquo;ll need</CardTitle>
@@ -208,6 +235,7 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
                   />
                 </CardContent>
               </Card>
+
               <Card>
                 <CardHeader>
                   <CardTitle>What you&rsquo;ll gain</CardTitle>
@@ -218,88 +246,55 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
                     highlight={true}
                   />
                 </CardContent>
-              </Card>            </div>
+              </Card>
+            </div>
 
-            {/* Organizer */}
             <Card className="mt-10">
               <CardHeader>
                 <CardTitle>Organizer</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="flex items-center gap-2 font-medium text-foreground">
-                  <BadgeCheck aria-hidden="true" className="size-5 text-primary" />
+                <p className="flex items-center gap-2 font-medium">
+                  <BadgeCheck className="size-5 text-primary" />
                   {opportunity.organizer.name}
                 </p>
+
                 <p className="mt-3 leading-relaxed text-muted-foreground">
                   {opportunity.organizer.about}
                 </p>
+
                 <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail aria-hidden="true" className="size-4 shrink-0 text-primary" />
+                  <Mail className="size-4 shrink-0 text-primary" />
                   {opportunity.organizer.contactEmail}
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Sign-up panel */}
           <aside>
-            <div className="flex flex-col gap-5 rounded-xl border bg-card p-6 shadow-sm lg:sticky lg:top-24">
-              <div>
-                <p className="flex items-baseline justify-between text-sm">
-                  <span className="text-muted-foreground">Places still open</span>
-                  <span className="font-semibold text-foreground">
-                    {spotsLeft}/{spotsTotal}
-                  </span>
-                </p>
-                <div
-                  role="img"
-                  aria-label={`${percentFilled} percent of ${spotsTotal} places are filled`}
-                  className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted"
-                >
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${percentFilled}%` }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {spotsFilled} of {spotsTotal} places already taken
-                </p>
-              </div>
-
-              <Button
-                render={<Link href={`/login?callbackUrl=/opportunities/${opportunity.id}`} />}
-                nativeButton={false}
-                className="h-12 bg-coral text-base text-coral-foreground hover:bg-coral/90"
-              >
-                Join this opportunity
-              </Button>
-              <p className="text-xs leading-relaxed text-muted-foreground">
-                You will be asked to log in first, then brought back here.
-              </p>
-              <Button
-                render={<Link href="/opportunities" />}
-                nativeButton={false}
-                variant="outline"
-                className="h-12 text-base"
-              >
-                Back to all opportunities
-              </Button>
-            </div>
+            <JoinOpportunityPanel
+              opportunityId={opportunity.id}
+              initialSpotsLeft={spotsLeft}
+              spotsTotal={spotsTotal}
+            />
           </aside>
         </div>
       </section>
 
-      {/* Related opportunities */}
       {related.length > 0 && (
-        <section aria-labelledby="related-heading" className="pb-16 sm:pb-20 lg:pb-24">
+        <section
+          aria-labelledby="related-heading"
+          className="pb-16 sm:pb-20 lg:pb-24"
+        >
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
             <div className="flex flex-wrap items-end justify-between gap-4">
               <h2
                 id="related-heading"
-                className="font-heading text-2xl font-semibold text-foreground sm:text-3xl"
+                className="font-heading text-2xl font-semibold sm:text-3xl"
               >
                 More ways to help
               </h2>
+
               <Button
                 render={<Link href="/opportunities" />}
                 nativeButton={false}
@@ -309,11 +304,12 @@ export default async function OpportunityPage({ params }: OpportunityPageProps) 
                 View all opportunities
               </Button>
             </div>
+
             <div className="mt-6 grid gap-6 sm:grid-cols-2">
-              {related.map((relatedOpportunity) => (
+              {related.map((item) => (
                 <OpportunityCard
-                  key={relatedOpportunity.id}
-                  opportunity={relatedOpportunity}
+                  key={item.id}
+                  opportunity={item}
                 />
               ))}
             </div>
