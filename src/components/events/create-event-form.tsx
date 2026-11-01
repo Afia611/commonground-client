@@ -157,9 +157,9 @@ export function CreateEventForm() {
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="event-type">Event type</Label>
           <Select
-            value={values.eventType || undefined}
-            onValueChange={(value) => update("eventType", (value ?? "") as EventType)}
-          >
+  value={values.eventType || null}
+  onValueChange={(value) => update("eventType", (value ?? "") as EventType)}
+>
             <SelectTrigger
               id="event-type"
               className="w-full"
