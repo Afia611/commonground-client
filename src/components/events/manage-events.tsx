@@ -17,11 +17,22 @@ import {
   buildCreateEventPayload,
   validateEventForm,
   getMinSelectableDate,
+  type EventFormErrors,
   type EventFormValues,
   type EventType,
 } from "@/lib/event-form";
 import type { Opportunity } from "@/data/opportunities";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +42,7 @@ import { toast } from "@/components/ui/toast";
 type ManagedEvent = Opportunity & {
   eventType?: string;
   eventDate?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
   location?: string;
   description?: string;
 };
@@ -68,6 +79,38 @@ async function getToken(): Promise<string> {
   return data.token;
 }
 
+function ManageEventsSkeleton() {
+  return (
+    <div aria-busy="true" className="space-y-6">
+      <span className="sr-only">Loading your events…</span>
+      <div aria-hidden="true" className="flex flex-wrap items-center justify-between gap-3">
+        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+        <div className="flex gap-2">
+          <div className="h-9 w-24 animate-pulse rounded-md bg-muted" />
+          <div className="h-9 w-32 animate-pulse rounded-md bg-muted" />
+        </div>
+      </div>
+      <div aria-hidden="true" className="grid gap-4 md:grid-cols-2">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="space-y-3 rounded-xl border bg-card p-5 shadow-sm"
+          >
+            <div className="h-6 w-2/3 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-full animate-pulse rounded bg-muted" />
+            <div className="h-4 w-5/6 animate-pulse rounded bg-muted" />
+            <div className="h-4 w-1/2 animate-pulse rounded bg-muted" />
+            <div className="flex gap-2 pt-3">
+              <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
+              <div className="h-8 w-20 animate-pulse rounded-md bg-muted" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ManageEvents() {
   const [events, setEvents] = useState<ManagedEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +118,10 @@ export function ManageEvents() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editing, setEditing] = useState<ManagedEvent | null>(null);
   const [form, setForm] = useState<EventFormValues | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<EventFormErrors>({});
+  const [deleteTarget, setDeleteTarget] = useState<ManagedEvent | null>(
+    null,
+  );
 
   const loadEvents = useCallback(async () => {
   try {
@@ -98,12 +145,21 @@ useEffect(() => {
   function startEdit(event: ManagedEvent) {
     setEditing(event);
     setForm(toFormValues(event));
+    setFieldErrors({});
   }
 
   function updateField<K extends keyof EventFormValues>(
     key: K,
     value: EventFormValues[K],
   ) {
+    setFieldErrors((previous) => {
+      if (!previous[key]) return previous;
+
+      const next = { ...previous };
+      delete next[key];
+      return next;
+    });
+
     setForm((previous) =>
       previous
         ? { ...previous, [key]: value }
@@ -119,6 +175,7 @@ useEffect(() => {
     if (!editing || !form || busyId) return;
 
     const errors = validateEventForm(form);
+    setFieldErrors(errors);
 
     if (Object.keys(errors).length > 0) {
       toast.add({
@@ -148,6 +205,7 @@ useEffect(() => {
 
       setEditing(null);
       setForm(null);
+      setFieldErrors({});
 
       await loadEvents();
     } catch (err) {
@@ -164,12 +222,6 @@ useEffect(() => {
   async function handleDelete(event: ManagedEvent) {
     if (busyId) return;
 
-    const confirmed = window.confirm(
-      `Delete "${event.title}"? This action cannot be undone.`,
-    );
-
-    if (!confirmed) return;
-
     setBusyId(event.id);
 
     try {
@@ -184,7 +236,10 @@ useEffect(() => {
       if (editing?.id === event.id) {
         setEditing(null);
         setForm(null);
+        setFieldErrors({});
       }
+
+      setDeleteTarget(null);
 
       toast.add({
         type: "success",
@@ -203,11 +258,7 @@ useEffect(() => {
   }
 
   if (loading) {
-    return (
-      <div className="py-16 text-center text-muted-foreground">
-        Loading your events...
-      </div>
-    );
+    return <ManageEventsSkeleton />;
   }
 
   return (
@@ -329,7 +380,7 @@ useEffect(() => {
                   type="button"
                   variant="destructive"
                   disabled={busyId !== null}
-                  onClick={() => void handleDelete(event)}
+                  onClick={() => setDeleteTarget(event)}
                 >
                   <Trash2 className="mr-2 size-4" />
                   {busyId === event.id
@@ -341,6 +392,46 @@ useEffect(() => {
           ))}
         </div>
       )}
+
+      {/* Accessible delete confirmation (replaces window.confirm) */}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && busyId === null) {
+            setDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this event?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `"${deleteTarget.title}" will be permanently removed from CommonGround. This action cannot be undone.`
+                : "This event will be permanently removed. This action cannot be undone."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busyId !== null}>
+              Keep event
+            </AlertDialogCancel>
+
+            <AlertDialogAction
+              type="button"
+              variant="destructive"
+              disabled={busyId !== null}
+              onClick={() => {
+                if (deleteTarget) {
+                  void handleDelete(deleteTarget);
+                }
+              }}
+            >
+              {busyId !== null ? "Deleting…" : "Delete event"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Edit event form */}
       {editing && form && (
@@ -364,9 +455,16 @@ useEffect(() => {
                 onChange={(e) =>
                   updateField("title", e.target.value)
                 }
+                aria-invalid={Boolean(fieldErrors.title)}
+                aria-describedby="edit-title-error"
                 maxLength={120}
                 required
               />
+              {fieldErrors.title ? (
+                <p id="edit-title-error" className="text-xs text-destructive" role="alert">
+                  {fieldErrors.title}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-1.5">
@@ -384,9 +482,16 @@ useEffect(() => {
                     e.target.value,
                   )
                 }
+                aria-invalid={Boolean(fieldErrors.description)}
+                aria-describedby="edit-description-error"
                 maxLength={4000}
                 required
               />
+              {fieldErrors.description ? (
+                <p id="edit-description-error" className="text-xs text-destructive" role="alert">
+                  {fieldErrors.description}
+                </p>
+              ) : null}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
@@ -404,7 +509,9 @@ useEffect(() => {
                       e.target.value as EventType,
                     )
                   }
-                  className="h-10 w-full rounded-md border bg-background px-3 text-sm"
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground aria-invalid:border-destructive"
+                  aria-invalid={Boolean(fieldErrors.eventType)}
+                  aria-describedby="edit-type-error"
                   required
                 >
                   <option value="">
@@ -420,6 +527,11 @@ useEffect(() => {
                     </option>
                   ))}
                 </select>
+                {fieldErrors.eventType ? (
+                  <p id="edit-type-error" className="text-xs text-destructive" role="alert">
+                    {fieldErrors.eventType}
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-1.5">
@@ -438,8 +550,15 @@ useEffect(() => {
                       e.target.value,
                     )
                   }
+                  aria-invalid={Boolean(fieldErrors.eventDate)}
+                  aria-describedby="edit-date-error"
                   required
                 />
+                {fieldErrors.eventDate ? (
+                  <p id="edit-date-error" className="text-xs text-destructive" role="alert">
+                    {fieldErrors.eventDate}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -457,9 +576,16 @@ useEffect(() => {
                     e.target.value,
                   )
                 }
+                aria-invalid={Boolean(fieldErrors.location)}
+                aria-describedby="edit-location-error"
                 maxLength={200}
                 required
               />
+              {fieldErrors.location ? (
+                <p id="edit-location-error" className="text-xs text-destructive" role="alert">
+                  {fieldErrors.location}
+                </p>
+              ) : null}
             </div>
 
             <div className="space-y-1.5">
@@ -477,7 +603,14 @@ useEffect(() => {
                     e.target.value,
                   )
                 }
+                aria-invalid={Boolean(fieldErrors.imageUrl)}
+                aria-describedby="edit-image-error"
               />
+              {fieldErrors.imageUrl ? (
+                <p id="edit-image-error" className="text-xs text-destructive" role="alert">
+                  {fieldErrors.imageUrl}
+                </p>
+              ) : null}
             </div>
 
             <div className="flex flex-wrap gap-3">
@@ -497,6 +630,7 @@ useEffect(() => {
                 onClick={() => {
                   setEditing(null);
                   setForm(null);
+                  setFieldErrors({});
                 }}
               >
                 Cancel

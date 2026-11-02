@@ -165,6 +165,28 @@ export async function fetchOpportunities(
   return data.filter(isOpportunityLike);
 }
 
+
+/**
+ * Fetch up to six upcoming events for the Home Page.
+ * Events are filtered, sorted, and limited by MongoDB.
+ */
+export async function fetchUpcomingOpportunities(): Promise<Opportunity[]> {
+  const response = await apiRequest("/api/opportunities/upcoming");
+
+  const payload: unknown = await response.json();
+  const data = (payload as { data?: unknown })?.data;
+
+  if (!Array.isArray(data)) {
+    throw new ApiError(
+      0,
+      "The backend returned an unexpected upcoming events response.",
+    );
+  }
+
+  return data.filter(isOpportunityLike);
+}
+
+
 // --------------------------------------------------
 // FETCH SINGLE OPPORTUNITY
 // --------------------------------------------------

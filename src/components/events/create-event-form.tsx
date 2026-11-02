@@ -114,7 +114,13 @@ export function CreateEventForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-5" aria-label="Create a new volunteering event" noValidate={false}>
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-5"
+      aria-label="Create a new volunteering event"
+      aria-busy={submitPending}
+      noValidate={false}
+    >
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="event-title">Event title</Label>
         <Input
@@ -208,6 +214,7 @@ export function CreateEventForm() {
           onChange={(event) => update("imageUrl", event.target.value)}
           aria-invalid={Boolean(fieldErrors.imageUrl)}
           aria-describedby="event-image-error"
+          maxLength={600}
         />
         {fieldErrors.imageUrl ? (
           <p id="event-image-error" className="text-xs text-destructive" role="alert">{fieldErrors.imageUrl}</p>

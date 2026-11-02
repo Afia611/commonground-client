@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildCreateEventPayload,
   getMinSelectableDate,
-  isFutureOrTodayDate,
+  isFutureDate,
   validateEventForm,
 } from "../src/lib/event-form";
 
@@ -12,15 +12,16 @@ function daysFromToday(offsetDays: number): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-describe("isFutureOrTodayDate", () => {
-  it("accepts today and future dates", () => {
-    expect(isFutureOrTodayDate(daysFromToday(0))).toBe(true);
-    expect(isFutureOrTodayDate(daysFromToday(30))).toBe(true);
+describe("isFutureDate", () => {
+  it("accepts future dates", () => {
+    expect(isFutureDate(daysFromToday(1))).toBe(true);
+    expect(isFutureDate(daysFromToday(30))).toBe(true);
   });
 
-  it("rejects past dates", () => {
-    expect(isFutureOrTodayDate(daysFromToday(-1))).toBe(false);
-    expect(isFutureOrTodayDate(daysFromToday(-365))).toBe(false);
+  it("rejects today and past dates", () => {
+    expect(isFutureDate(daysFromToday(0))).toBe(false);
+    expect(isFutureDate(daysFromToday(-1))).toBe(false);
+    expect(isFutureDate(daysFromToday(-365))).toBe(false);
   });
 });
 
@@ -66,12 +67,17 @@ describe("validateEventForm", () => {
 
   it("rejects a past event date", () => {
     const errors = validateEventForm({ ...valid, eventDate: daysFromToday(-2) });
-    expect(errors.eventDate).toMatch(/cannot be in the past/);
+    expect(errors.eventDate).toMatch(/must be in the future/);
+  });
+
+  it("rejects today's event date", () => {
+    const errors = validateEventForm({ ...valid, eventDate: daysFromToday(0) });
+    expect(errors.eventDate).toMatch(/must be in the future/);
   });
 
   it("rejects non-http thumbnail URLs", () => {
     const errors = validateEventForm({ ...valid, imageUrl: "javascript:alert(1)" });
-    expect(errors.imageUrl).toMatch(/valid http\(s\)/);
+    expect(errors.imageUrl).toMatch(/valid HTTP or HTTPS/);
   });
 });
 
@@ -98,7 +104,7 @@ describe("buildCreateEventPayload", () => {
 });
 
 describe("getMinSelectableDate", () => {
-  it("is today in local time", () => {
-    expect(getMinSelectableDate()).toBe(daysFromToday(0));
+  it("is tomorrow in local time so only future dates are selectable", () => {
+    expect(getMinSelectableDate()).toBe(daysFromToday(1));
   });
 });

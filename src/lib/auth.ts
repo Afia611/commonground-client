@@ -32,9 +32,6 @@ const BASE_URL =
   process.env.BETTER_AUTH_URL?.trim() ||
   "http://localhost:3000";
 
-const PRODUCTION_URL =
-  "https://commonground-client-tau.vercel.app";
-
 // Validate required environment variables.
 if (!process.env.BETTER_AUTH_SECRET) {
   throw new Error(

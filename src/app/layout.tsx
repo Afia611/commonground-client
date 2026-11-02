@@ -1,11 +1,14 @@
+
 import type { Metadata } from "next";
 import { Fraunces, Geist_Mono, Inter } from "next/font/google";
+
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toast";
+
 import "./globals.css";
 
-/* Inter: clean, highly readable body font for UI text */
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
@@ -27,17 +30,24 @@ export const metadata: Metadata = {
     "Discover meaningful volunteering opportunities, connect with communities, and make a difference together.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${inter.variable} ${fraunces.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="font-sans flex min-h-full flex-col">
-        <SiteHeader />
-        <main className="flex flex-1 flex-col">{children}</main>
-        <SiteFooter />
-        <Toaster />
+      <body className="flex min-h-full flex-col font-sans">
+        <ThemeProvider>
+          <SiteHeader />
+          <main className="flex flex-1 flex-col">
+            {children}
+          </main>
+          <SiteFooter />
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

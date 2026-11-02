@@ -1,17 +1,17 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowRight,
+  CalendarCheck,
   CalendarDays,
   CalendarPlus,
   HeartHandshake,
   Loader2,
   Plus,
-  Users,
 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
@@ -26,6 +26,9 @@ import {
 type Opportunity = {
   id: string;
   title: string;
+  eventDate?: string | null;
+  location?: string;
+  category?: string;
 };
 
 type ApiResponse = {
@@ -38,6 +41,23 @@ const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:5000"
 ).replace(/\/+$/, "");
+
+function formatDashboardDate(value?: string | null): string {
+  if (!value) return "Date to be confirmed";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Date to be confirmed";
+  }
+
+  return new Intl.DateTimeFormat("en-BD", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
 
 function extractOpportunities(data: unknown): Opportunity[] {
   if (Array.isArray(data)) {
@@ -92,8 +112,8 @@ export default function DashboardPage() {
   const [createdCount, setCreatedCount] = useState<number | null>(
     null,
   );
-  const [joinedCount, setJoinedCount] = useState<number | null>(
-    null,
+  const [joinedEvents, setJoinedEvents] = useState<Opportunity[]>(
+    [],
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -139,7 +159,7 @@ export default function DashboardPage() {
         }
 
         if (joinedResult.status === "fulfilled") {
-          setJoinedCount(joinedResult.value.length);
+          setJoinedEvents(joinedResult.value);
         }
 
         const failures = results.filter(
@@ -173,6 +193,31 @@ export default function DashboardPage() {
     };
   }, [isPending, userId, router]);
 
+  // Real commitments only: events the volunteer has joined whose date has
+  // not passed. No invented hours or engagement numbers.
+  const upcomingCommitments = useMemo(() => {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    return joinedEvents
+      .filter((event) => {
+        if (!event.eventDate) return false;
+
+        const date = new Date(event.eventDate);
+
+        return (
+          !Number.isNaN(date.getTime()) &&
+          date.getTime() >= startOfToday.getTime()
+        );
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.eventDate as string).getTime();
+        const dateB = new Date(b.eventDate as string).getTime();
+
+        return dateA - dateB;
+      });
+  }, [joinedEvents]);
+
   if (isPending || !userId) {
     return (
       <main className="flex min-h-[60vh] items-center justify-center">
@@ -183,6 +228,8 @@ export default function DashboardPage() {
       </main>
     );
   }
+
+  const joinedCount = joinedEvents.length;
 
   const firstName =
     session?.user?.name?.trim().split(/\s+/)[0] ?? "Volunteer";
@@ -275,22 +322,87 @@ export default function DashboardPage() {
               <CardContent className="flex items-center justify-between p-6">
                 <div>
                   <p className="text-sm text-muted-foreground">
-                    Total activities
+                    Upcoming commitments
                   </p>
                   <p className="mt-2 font-heading text-4xl font-semibold">
-                    {loading
-                      ? "..."
-                      : createdCount !== null &&
-                          joinedCount !== null
-                        ? createdCount + joinedCount
-                        : "—"}
+                    {loading ? "..." : upcomingCommitments.length}
                   </p>
                 </div>
                 <div className="rounded-xl bg-primary/10 p-3">
-                  <Users className="size-6 text-primary" />
+                  <CalendarCheck className="size-6 text-primary" />
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          <div className="mt-8 rounded-2xl border bg-card p-6 sm:p-8">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 className="font-heading text-xl font-semibold">
+                  Your upcoming commitments
+                </h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Events you have joined that are still ahead.
+                </p>
+              </div>
+
+              {upcomingCommitments.length > 0 ? (
+                <Button
+                  render={<Link href="/dashboard/joined" />}
+                  nativeButton={false}
+                  variant="outline"
+                  size="sm"
+                >
+                  View all joined events
+                </Button>
+              ) : null}
+            </div>
+
+            {loading ? (
+              <div className="mt-5 space-y-3" aria-hidden="true">
+                <div className="h-16 animate-pulse rounded-xl bg-muted" />
+                <div className="h-16 animate-pulse rounded-xl bg-muted" />
+              </div>
+            ) : upcomingCommitments.length > 0 ? (
+              <ul className="mt-5 flex flex-col gap-3">
+                {upcomingCommitments.slice(0, 4).map((event) => (
+                  <li key={event.id}>
+                    <Link
+                      href={`/opportunities/${event.id}`}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-background px-4 py-3 transition-colors hover:border-primary/40 hover:bg-muted/50"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">
+                          {event.title}
+                        </span>
+                        <span className="mt-0.5 block truncate text-sm text-muted-foreground">
+                          {event.location ?? event.category ?? "Community event"}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5 text-sm font-medium text-primary">
+                        <CalendarDays aria-hidden="true" className="size-4" />
+                        {formatDashboardDate(event.eventDate)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-5 rounded-xl border border-dashed p-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No upcoming commitments yet. Explore opportunities and join a
+                  cause that matters to you.
+                </p>
+                <Button
+                  render={<Link href="/opportunities" />}
+                  nativeButton={false}
+                  className="mt-4 bg-coral text-coral-foreground hover:bg-coral/90"
+                >
+                  Explore opportunities
+                  <ArrowRight className="ml-2 size-4" />
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="mb-6 mt-14">
@@ -320,7 +432,7 @@ export default function DashboardPage() {
                 </p>
 
                 <Button
-                  render={<Link href="/events/mine" />}
+                  render={<Link href="/events/manage" />}
                   nativeButton={false}
                   variant="outline"
                   className="mt-auto w-full justify-between"

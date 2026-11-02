@@ -1,25 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSessionCookie } from "better-auth/cookies";
+
+import { auth } from "@/lib/auth";
 
 /**
- * Optimistic route protection for CommonGround volunteer/admin pages.
+ * Server-side route protection for CommonGround volunteer pages.
  *
- * The BetterAuth session cookie is only checked for presence here — this is
- * the officially recommended pattern for fast redirects; it is NOT a
- * security boundary. Every protected page re-validates the session
- * server-side (auth.api.getSession) before rendering anything.
+ * Next.js 16 runs Proxy on the Node.js runtime, so we can ask BetterAuth to
+ * validate the session against MongoDB rather than trusting the presence of a
+ * cookie. The cookie alone is only a hint: it can be expired, revoked, or
+ * forged. `auth.api.getSession()` verifies the signed session token and
+ * returns the current user (or null).
  *
- * Next.js 16 renamed middleware to proxy; the `middleware()` function is now
- * `proxy()` (see src/app docs in node_modules/next/dist/docs).
+ * This is a fast, additional redirect layer. Every protected page and every
+ * Express API call still performs its own authorization check — the proxy is
+ * not the security boundary.
  */
 export async function proxy(request: NextRequest) {
-  const sessionCookie = getSessionCookie(request);
+  let session: Awaited<ReturnType<typeof auth.api.getSession>> = null;
 
-  if (!sessionCookie) {
+  try {
+    session = await auth.api.getSession({ headers: request.headers });
+  } catch {
+    // If the auth store is temporarily unreachable we fail closed and send
+    // the visitor to login. The login page itself also re-checks the session,
+    // so an expired cookie cannot loop forever.
+    session = null;
+  }
+
+  if (!session) {
     const loginUrl = new URL("/login", request.url);
-    // Preserve the intended destination so login can send the user back.
     const callbackUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`;
     loginUrl.searchParams.set("callbackUrl", callbackUrl);
+
     return NextResponse.redirect(loginUrl);
   }
 
@@ -27,5 +39,11 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/events/create", "/events/manage", "/events/joined"],
+  matcher: [
+    "/dashboard/:path*",
+    "/events/create",
+    "/events/manage",
+    "/events/joined",
+    "/profile",
+  ],
 };

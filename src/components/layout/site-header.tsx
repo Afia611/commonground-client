@@ -10,9 +10,12 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  UserRound,
+  X,
 } from "lucide-react";
 
 import { Logo } from "@/components/layout/logo";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { authClient } from "@/lib/auth-client";
 import {
   Avatar,
@@ -47,8 +50,15 @@ import { cn } from "cn";
 // Public navigation links
 const navLinks = [
   { label: "Home", href: "/" },
-  { label: "Explore Opportunities", href: "/opportunities" },
+  { label: "Upcoming Events", href: "/opportunities" },
 ];
+
+// Personal account link, shown in the account menu and mobile drawer.
+const profileItem = {
+  label: "Your profile",
+  href: "/profile",
+  icon: UserRound,
+};
 
 // Authenticated navigation links
 const eventMenuItems = [
@@ -75,9 +85,13 @@ const eventMenuItems = [
 ];
 
 function isActive(pathname: string, href: string) {
-  return href === "/"
-    ? pathname === "/"
-    : pathname === href || pathname.startsWith(`${href}/`);
+  // The dashboard is the parent of /dashboard/joined, so matching it by
+  // prefix would highlight "Dashboard" and "Joined Events" at the same time.
+  if (href === "/" || href === "/dashboard") {
+    return pathname === href;
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function navLinkClasses(active: boolean) {
@@ -205,6 +219,16 @@ export function SiteHeader() {
 
         <DropdownMenuSeparator />
 
+        <DropdownMenuItem render={<Link href={profileItem.href} />}>
+          <profileItem.icon
+            aria-hidden="true"
+            className="size-4 text-primary"
+          />
+          {profileItem.label}
+        </DropdownMenuItem>
+
+        <DropdownMenuSeparator />
+
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut
             aria-hidden="true"
@@ -270,6 +294,7 @@ export function SiteHeader() {
 
         {/* Desktop authentication */}
         <div className="hidden shrink-0 items-center gap-2 lg:flex">
+          <ThemeToggle />
           {user ? (
             profileMenu
           ) : sessionPending ? (
@@ -313,6 +338,7 @@ export function SiteHeader() {
 
           <SheetContent
             side="left"
+            showCloseButton={false}
             className="w-80 max-w-[90vw] px-6 py-6"
           >
             <SheetHeader>
@@ -321,7 +347,24 @@ export function SiteHeader() {
               </SheetTitle>
             </SheetHeader>
 
-            <Logo />
+            <div className="flex items-center justify-between gap-2">
+              <Logo />
+              <div className="flex items-center gap-1">
+                <ThemeToggle />
+                <SheetClose
+                  render={
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Close navigation menu"
+                      className="size-10"
+                    />
+                  }
+                >
+                  <X aria-hidden="true" />
+                </SheetClose>
+              </div>
+            </div>
 
             <nav
               aria-label="Mobile navigation"
@@ -388,6 +431,19 @@ export function SiteHeader() {
                       {user.name}
                     </span>
                   </div>
+
+                  <SheetClose
+                    nativeButton={false}
+                    render={
+                      <Link
+                        href={profileItem.href}
+                        className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                      />
+                    }
+                  >
+                    <UserRound aria-hidden="true" className="size-4" />
+                    {profileItem.label}
+                  </SheetClose>
 
                   <Button
                     onClick={handleLogout}

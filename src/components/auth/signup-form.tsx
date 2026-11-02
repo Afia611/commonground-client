@@ -11,8 +11,11 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast";
 import { validatePasswordPolicy, validatePhotoUrl } from "@/lib/password-policy";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 interface SignUpFieldErrors {
   name?: string;
+  email?: string;
   photoURL?: string;
   password?: string;
 }
@@ -34,11 +37,31 @@ export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
 
   function validateFields(): SignUpFieldErrors {
     const errors: SignUpFieldErrors = {};
-    if (!name.trim()) errors.name = "Please tell us your name.";
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+
+    if (trimmedName.length < 2) {
+      errors.name = "Please enter your full name (at least 2 characters).";
+    } else if (trimmedName.length > 80) {
+      errors.name = "Your name must be 80 characters or fewer.";
+    }
+
+    if (!trimmedEmail) {
+      errors.email = "Please enter your email address.";
+    } else if (!EMAIL_PATTERN.test(trimmedEmail)) {
+      errors.email = "Please enter a valid email address.";
+    }
+
     const photoError = validatePhotoUrl(photoURL);
     if (photoError) errors.photoURL = photoError;
-    const passwordError = validatePasswordPolicy(password);
-    if (passwordError) errors.password = passwordError;
+
+    if (password.length > 128) {
+      errors.password = "Password must be 128 characters or fewer.";
+    } else {
+      const passwordError = validatePasswordPolicy(password);
+      if (passwordError) errors.password = passwordError;
+    }
+
     return errors;
   }
 
@@ -61,7 +84,7 @@ export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
     try {
       const { error } = await authClient.signUp.email({
         name: name.trim(),
-        email,
+        email: email.trim(),
         password,
         image: photoURL.trim() || undefined,
       });
@@ -128,6 +151,7 @@ export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
         onSubmit={handleSubmit}
         className="flex flex-col gap-4"
         aria-label="Create a CommonGround account"
+        noValidate
       >
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="signup-name">Full name</Label>
@@ -138,10 +162,12 @@ export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
             value={name}
             onChange={(event) => setName(event.target.value)}
             aria-invalid={Boolean(fieldErrors.name)}
+            aria-describedby="signup-name-error"
+            maxLength={80}
             required
           />
           {fieldErrors.name ? (
-            <p className="text-xs text-destructive" role="alert">{fieldErrors.name}</p>
+            <p id="signup-name-error" className="text-xs text-destructive" role="alert">{fieldErrors.name}</p>
           ) : null}
         </div>
 
@@ -155,9 +181,10 @@ export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
             value={photoURL}
             onChange={(event) => setPhotoURL(event.target.value)}
             aria-invalid={Boolean(fieldErrors.photoURL)}
+            aria-describedby="signup-photo-error"
           />
           {fieldErrors.photoURL ? (
-            <p className="text-xs text-destructive" role="alert">{fieldErrors.photoURL}</p>
+            <p id="signup-photo-error" className="text-xs text-destructive" role="alert">{fieldErrors.photoURL}</p>
           ) : null}
         </div>
 
@@ -170,8 +197,14 @@ export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
             placeholder="you@example.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.email)}
+            aria-describedby="signup-email-error"
+            maxLength={254}
             required
           />
+          {fieldErrors.email ? (
+            <p id="signup-email-error" className="text-xs text-destructive" role="alert">{fieldErrors.email}</p>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -184,14 +217,15 @@ export function SignUpForm({ callbackUrl }: { callbackUrl: string }) {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             aria-invalid={Boolean(fieldErrors.password)}
-            aria-describedby="signup-password-hint"
+            aria-describedby="signup-password-hint signup-password-error"
+            maxLength={128}
             required
           />
           <p id="signup-password-hint" className="text-xs text-muted-foreground">
             At least 6 characters with one uppercase and one lowercase letter.
           </p>
           {fieldErrors.password ? (
-            <p className="text-xs text-destructive" role="alert">{fieldErrors.password}</p>
+            <p id="signup-password-error" className="text-xs text-destructive" role="alert">{fieldErrors.password}</p>
           ) : null}
         </div>
 

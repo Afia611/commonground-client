@@ -10,6 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast";
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type LoginFieldErrors = {
+  email?: string;
+  password?: string;
+};
+
 /**
  * Email + password login with optional Google social login.
  * Belongs to the BetterAuth session based on signed httpOnly cookies, so
@@ -19,16 +26,49 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<LoginFieldErrors>({});
   const [emailPending, setEmailPending] = useState(false);
   const [googlePending, setGooglePending] = useState(false);
+
+  function validateFields(): LoginFieldErrors {
+    const errors: LoginFieldErrors = {};
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      errors.email = "Please enter your email address.";
+    } else if (!EMAIL_PATTERN.test(trimmedEmail)) {
+      errors.email = "Please enter a valid email address.";
+    }
+
+    if (!password) {
+      errors.password = "Please enter your password.";
+    }
+
+    return errors;
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (emailPending || googlePending) return;
 
+    const errors = validateFields();
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      toast.add({
+        type: "warning",
+        title: "Please check your sign-in details",
+        description: Object.values(errors)[0],
+      });
+      return;
+    }
+
     setEmailPending(true);
     try {
-      const { error } = await authClient.signIn.email({ email, password });
+      const { error } = await authClient.signIn.email({
+        email: email.trim(),
+        password,
+      });
 
       if (error) {
         toast.add({
@@ -88,7 +128,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
 
   return (
     <div className="flex flex-col gap-5">
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate={false} aria-label="Log in to CommonGround">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate aria-label="Log in to CommonGround">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="login-email">Email</Label>
           <Input
@@ -98,8 +138,16 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             placeholder="you@example.com"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.email)}
+            aria-describedby="login-email-error"
+            maxLength={254}
             required
           />
+          {fieldErrors.email ? (
+            <p id="login-email-error" className="text-xs text-destructive" role="alert">
+              {fieldErrors.email}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-1.5">
@@ -111,8 +159,16 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
             placeholder="Your password"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            aria-invalid={Boolean(fieldErrors.password)}
+            aria-describedby="login-password-error"
+            maxLength={128}
             required
           />
+          {fieldErrors.password ? (
+            <p id="login-password-error" className="text-xs text-destructive" role="alert">
+              {fieldErrors.password}
+            </p>
+          ) : null}
         </div>
 
         <Button
