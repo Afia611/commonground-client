@@ -1,4 +1,3 @@
-
 /**
  * CommonGround BetterAuth server configuration.
  *
@@ -107,7 +106,9 @@ export const auth = betterAuth({
   trustedOrigins: [
   "http://localhost:3000",
   "https://commonground-client-tau.vercel.app",
-  "https://commonground-client-hrryk8ok7-programming-hero15.vercel.app",
+  ...(process.env.VERCEL_URL
+    ? [`https://${process.env.VERCEL_URL}`]
+    : []),
 ],
 
   secret: process.env.BETTER_AUTH_SECRET,
